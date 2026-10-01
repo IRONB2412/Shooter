@@ -1,0 +1,13 @@
+/Library/
+/Temp/
+/Logs/
+/UserSettings/
+/.vs/
+/[Ex]ternal/
+/[Ob]ject/
+/[Ob]jects/
+/[Pp]ackage[Cc]ache/
+*.csproj
+*.sln
+*.suo
+*.user

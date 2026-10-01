@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 099cdd3464d1a924e974301b833f213c, type: 3}
+  m_Name: Smoke
+  m_EditorClassIdentifier: Assembly-CSharp::ThrowableData
+  displayName: Smoke
+  icon: {fileID: 0}
+  kind: 1
+  color: {r: 0.7, g: 0.7, b: 0.75, a: 0.8}
+  throwSpeed: 10
+  drag: 3.5
+  fuseTime: 1.2
+  radius: 4
+  damage: 90
+  terrainCarveRadius: 2.5
+  effectDuration: 6
