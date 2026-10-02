@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 /// <summary>
@@ -37,11 +38,21 @@ public class HUDLayoutManager : MonoBehaviour
         foreach (var e in HUDLayout.Elements) e.ResetToDefault();
     }
 
+    private DraggableHUDElement _shownSelection;
+    private bool _labelPrimed;
+
     private void Update()
     {
-        if (selectedLabel == null || !HUDLayout.EditMode) return;
-        selectedLabel.text = HUDLayout.Selected != null
-            ? "Selected: " + HUDLayout.Selected.name
-            : "Tap a control to select";
+        if (!HUDLayout.EditMode) { _labelPrimed = false; return; }
+
+        // Esc / Android Back leaves the editor.
+        var kb = Keyboard.current;
+        if (kb != null && kb.escapeKey.wasPressedThisFrame) { ExitEdit(); return; }
+
+        // Only touch the label when the selection changes (avoids a UI rebuild every frame).
+        if (selectedLabel == null || (_labelPrimed && _shownSelection == HUDLayout.Selected)) return;
+        _shownSelection = HUDLayout.Selected;
+        _labelPrimed = true;
+        selectedLabel.text = _shownSelection != null ? "Selected: " + _shownSelection.name : "Tap a control to select";
     }
 }

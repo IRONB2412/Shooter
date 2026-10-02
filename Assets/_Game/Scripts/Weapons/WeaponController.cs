@@ -20,6 +20,7 @@ public class WeaponController : MonoBehaviour
     public event Action<WeaponData> OnWeaponChanged;
 
     public WeaponData Current => (_index >= 0 && _index < loadout.Count) ? loadout[_index] : null;
+    public float MuzzleOffset => muzzleOffset;
     public int CurrentAmmo { get; private set; }
     public IReadOnlyList<WeaponData> Loadout => loadout;
 
@@ -96,6 +97,8 @@ public class WeaponController : MonoBehaviour
         Vector2 aim = _motor.AimDir.sqrMagnitude > 0.001f ? _motor.AimDir.normalized : Vector2.right;
         Vector2 origin = (Vector2)transform.position + aim * muzzleOffset;
 
+        GameEffects.Muzzle(origin, aim);
+
         for (int i = 0; i < Current.pelletsPerShot; i++)
         {
             float spread = UnityEngine.Random.Range(-Current.spreadAngle, Current.spreadAngle);
@@ -103,7 +106,7 @@ public class WeaponController : MonoBehaviour
 
             var go = PoolManager.Instance.Spawn(projectilePrefab, origin, Quaternion.identity);
             if (go != null && go.TryGetComponent<Projectile>(out var p))
-                p.Init(Current, dir, _team, gameObject);
+                p.Init(Current, dir, _team, gameObject, transform.position);
         }
 
         CurrentAmmo--;

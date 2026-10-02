@@ -7,7 +7,12 @@ Data-driven & pooled for performance. Custom in-editor Level Builder.
 
 - **Unity:** 6000.3.6f1 (URP 2D)
 - **Root folder for all our assets:** `Assets/_Game/`
-- **Demo art:** Unity built-in sprites (Knob, Square, Circle, UISprite) — no external downloads needed.
+- **Art:** [Kenney "Top-down Shooter"](https://kenney.nl/assets/top-down-shooter) —
+  **CC0 / public domain** (free for commercial use, no attribution required).
+  Downloaded sprites live in `Assets/_Game/Art/sprite/` (see its `CREDITS.txt`).
+  Player = Man Blue, bots = Zombie; floor = stone, walls = brick, edge = wood,
+  destructible = crate, props = crate/barrel. The procedural square/circle are
+  still used for bullets, effects and UI.
 
 ---
 
@@ -24,7 +29,7 @@ Data-driven & pooled for performance. Custom in-editor Level Builder.
 | Weapons (runtime) | `Weapons/WeaponController.cs`, `Projectile.cs` | Fire, reload, pooled bullets |
 | Throwables (data) | `Weapons/ThrowableData.cs` (SO) | Grenade/Smoke/Flash via one script |
 | Throwables (runtime) | `Weapons/ThrowableController.cs`, `Throwable.cs` | Arc throw, effects on land |
-| Bot AI | `AI/BotAI.cs` | Difficulty enum tunes accuracy/reaction/aggression |
+| Bot AI | `AI/BotAI.cs` | State machine: Patrol (roam near home) → Chase (only when you enter its vision cone + line of sight) → Return home when you escape. Difficulty tunes vision/accuracy/reaction/speed/give-up. |
 | Destructible terrain | `World/DestructibleTilemap.cs` | Grenades/bullets carve tilemap tiles |
 | Camera | `World/CameraFollow.cs` | Smooth follow, clamped to map |
 | UI | `UI/*` | Main menu, matchmaking, HUD, joystick, pause |
@@ -84,11 +89,53 @@ Data-driven & pooled for performance. Custom in-editor Level Builder.
 - **Left joystick:** movement only — the character walks where this stick points.
 - **Right joystick (AIM):** drag to rotate aim & facing. Aiming does not fire.
 - **FIRE button:** hold to shoot (above the aim stick). Move/aim/fire independent.
-- **Desktop:** WASD/arrows move, mouse aims, hold Left Mouse to fire.
-- **Reload:** R / Reload button.
+- On a phone the sticks + buttons all respond **at once** (multi-touch); each control
+  locks to the finger that grabbed it, so other fingers can't hijack it.
+- Not touching the AIM stick? You face (and shoot) the way you walk.
+- **Aim trail:** a red laser shows exactly where your shots will go (stops at walls).
+- **Android Back** = Pause in game, back/quit in the menu, exit in Edit Layout.
+
+### Laptop / editor testing — keyboard twin-stick (all at once)
+The **Device Simulator turns your mouse into a single finger** (so it can only hold
+one on-screen control). Use the keyboard to drive everything simultaneously:
+- **Move:** W A S D     **Aim:** Arrow keys     **Fire:** hold **Space**
+- **Reload:** R   **Throw:** G   **Swap throwable:** Q   **Weapons:** 1 / 2 / 3 / 4
+- In the normal Game view (not the Simulator) the real mouse also works:
+  cursor aims, Left Mouse fires (a click on a HUD button never fires a shot).
+- Keyboard reaches the game even if another editor window has focus.
 - **Weapons:** keys 1–4 or the four weapon buttons (Pistol / AR / SMG / Fire Gun).
 - **Throw:** G / THROW button. **Swap throwable:** Swap button (Grenade/Smoke/Flash).
 - **Pause:** Esc or the II button.
+
+## Particle effects
+Pooled ParticleSystems fire on game events — muzzle flash (shooting), bullet
+impacts, grenade explosions, blood (any damage), smoke & flash bursts.
+Code: `World/GameEffects.cs` (static `GameEffects.Muzzle/Impact/Explosion/Blood/…`),
+`World/PooledParticle.cs`. Rebuild: `Shooter > Build Effects`.
+
+## Sprite UI
+UI uses [Kenney UI Pack](https://kenney.nl/assets/ui-pack) (CC0) in
+`Assets/_Game/Art/ui/`: glossy 9-sliced buttons, grey square buttons for weapon
+slots (with gun icons), ring+knob joysticks, a red round FIRE button, and panel
+cards for the menu / pause / health bar. Rebuild: `Shooter > Build UI`.
+
+## Level Builder — tile types & graphics
+Open `Shooter > Level Builder`. Brushes: **Floor, Edge (boundary), Wall (solid),
+Destructible, Door, Prop, Spawn, Erase**. All tiles are 1×1.
+- **Edge / Wall:** solid & indestructible (Edge is meant for map boundaries).
+- **Destructible:** grenades / Fire Gun carve it.
+- **Door:** a placed object that auto opens when a player/bot is near and closes
+  when clear (blocks movement, bullets & LOS while shut). Code: `World/DoorController.cs`.
+- **Prop:** a placed solid, indestructible obstacle (cabinet, trolley, crate…).
+  Set **"Prop graphic"** before placing — each prop can use a different sprite
+  while sharing the same behaviour. Code: `World/Prop.cs`.
+
+**Tile graphics (reskin):** the *Tile graphics* section has a sprite field per
+tile type. Drop in a new sprite and **every placed tile of that type updates
+instantly** (they share one asset). Assigned sprites are re-imported to 1×1 so
+they fill a cell exactly. *Create a NEW tile from a sprite* makes a separate tile
+asset instead of replacing one. Door/Prop prefabs + the Edge tile are created by
+`Shooter > Build Game` (or auto-created when you open the Level Builder).
 
 ## Customise the HUD (move & resize buttons)
 Pause → **Edit Layout**. Then:
@@ -109,6 +156,28 @@ Code: `UI/DraggableHUDElement.cs`, `UI/HUDLayoutManager.cs`, `UI/HUDLayout.cs`.
 2. One player picks **Host**; the other picks **Join** and enters the host's LAN IP.
 3. Same network works directly; over the internet the host must port-forward 7777
    (UDP) — or wire Relay (below) so no IP/port-forwarding is needed.
+
+## Netcode / online structure (important)
+Netcode for GameObjects has two hard rules: the **NetworkManager must be a root
+object**, and **no NetworkObject may share its GameObject or children**. Breaking
+either pops a blocking editor dialog. To sidestep it entirely, the saved scene
+contains **no NetworkManager** — `MatchBootstrap` builds the whole rig (NetworkManager
++ transport + a plain `NetworkGameManager` spawner) **at runtime** only for online
+matches. Don't add a NetworkManager/NetworkObject to the Game scene by hand.
+
+## Performance / feel (low-end Android)
+- Player & bots use `Rigidbody2D.Interpolate` for smooth motion; visuals turn via
+  `CharacterMotor.turnSpeed` (no snapping); camera follow `smoothTime = 0.06`.
+- 60 FPS target, vsync off, screen never sleeps, landscape only (`Core/PlatformSetup.cs`).
+- Wall/crate tilemaps use **one merged CompositeCollider2D** each instead of a collider
+  per tile (cheaper physics, bullets and bot line-of-sight).
+- Mobile URP asset: HDR/MSAA/shadows off, dynamic batching + SRP batcher on.
+- HUD: dynamic widgets (sticks, health, ammo, kills) sit in their own sub-canvases so
+  updates don't rebuild the whole HUD; labels don't take raycasts; safe-area aware.
+- Impact/blood particles are rate-capped; bullets, effects & throwables are pooled;
+  bot perception runs on their reaction-time cadence, not every frame.
+- Android player settings: IL2CPP, ARMv7 + ARM64, optimized frame pacing.
+- Re-apply after adding levels: **`Shooter > Optimize for Android`**.
 
 ## Online multiplayer note
 Offline (vs bots) is fully self-contained. Online uses **Netcode for GameObjects**:

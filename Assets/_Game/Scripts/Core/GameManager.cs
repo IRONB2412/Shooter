@@ -94,7 +94,7 @@ public class GameManager : MonoBehaviour
 
     private Vector3 RandomSpawn()
     {
-        if (spawnPoints == null || spawnPoints.Length == 0) return Vector3.zero;
-        return spawnPoints[UnityEngine.Random.Range(0, spawnPoints.Length)].transform.position;
+        // Keep fighters well apart: never spawn near anyone who is alive.
+        return SpawnPoint.Pick(spawnPoints);
     }
 }

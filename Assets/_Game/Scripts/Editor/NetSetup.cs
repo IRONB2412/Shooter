@@ -54,10 +54,14 @@ public static class NetSetup
 
     static void SetupScene(GameObject playerNet, GameObject botNet)
     {
-        var scene = EditorSceneManager.OpenScene(ScenePath);
+        // Operate on the Game scene if it's already open (avoids reloading a possibly
+        // invalid on-disk version, which would pop Netcode's validation dialog).
+        var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        if (scene.name != "Game" || !scene.isLoaded)
+            scene = EditorSceneManager.OpenScene(ScenePath);
 
         // Clean previous online objects so re-runs don't stack.
-        foreach (var n in new[] { "NetworkRig", "OfflineManager", "Bootstrap" })
+        foreach (var n in new[] { "Online", "NetworkRig", "NetworkManager", "NetGameManager", "OfflineManager", "Bootstrap" })
         {
             var old = GameObject.Find(n);
             if (old != null) Object.DestroyImmediate(old);
@@ -78,36 +82,14 @@ public static class NetSetup
         Set(gm, "botPrefab", baseBot);
         Set(gm, "spawnPoints", spawns);
 
-        // Network rig (online path)
-        var rig = new GameObject("NetworkRig");
-        var nm = rig.AddComponent<NetworkManager>();
-        var utp = rig.AddComponent<UnityTransport>();
-
-        nm.NetworkConfig = new NetworkConfig
-        {
-            NetworkTransport = utp,
-            EnableSceneManagement = true,
-            ConnectionApproval = false,
-            Prefabs = new NetworkPrefabs()
-        };
-        nm.NetworkConfig.Prefabs.Add(new NetworkPrefab { Prefab = playerNet });
-        nm.NetworkConfig.Prefabs.Add(new NetworkPrefab { Prefab = botNet });
-
-        // In-scene spawner (auto-spawns when the server starts).
-        var spawnerGO = new GameObject("NetGameManager");
-        spawnerGO.transform.SetParent(rig.transform);
-        spawnerGO.AddComponent<NetworkObject>();
-        var ngm = spawnerGO.AddComponent<NetworkGameManager>();
-        Set(ngm, "netPlayerPrefab", playerNet);
-        Set(ngm, "netBotPrefab", botNet);
-
-        rig.SetActive(false); // MatchBootstrap turns it on only for online matches
-
-        // Bootstrap chooses offline vs online at runtime.
+        // No NetworkManager/NetworkObject is placed in the scene — MatchBootstrap builds
+        // the whole online rig at runtime (see MatchBootstrap / memory ngo-hierarchy-rules),
+        // so the editor never runs Netcode's hierarchy validation on this scene.
         var bootGO = new GameObject("Bootstrap");
         var boot = bootGO.AddComponent<MatchBootstrap>();
         Set(boot, "offlineManager", offlineGO);
-        Set(boot, "networkRig", rig);
+        Set(boot, "netPlayerPrefab", playerNet);
+        Set(boot, "netBotPrefab", botNet);
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);

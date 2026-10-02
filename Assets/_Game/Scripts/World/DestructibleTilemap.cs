@@ -9,9 +9,17 @@ using UnityEngine.Tilemaps;
 [RequireComponent(typeof(Tilemap))]
 public class DestructibleTilemap : MonoBehaviour
 {
+    /// <summary>Live registry so explosions don't need FindObjectsByType.</summary>
+    public static readonly System.Collections.Generic.List<DestructibleTilemap> All = new();
+
+    /// <summary>Raised after tiles are carved away (centre, radius) so AI navigation can refresh.</summary>
+    public static event System.Action<Vector2, float> Carved;
+
     private Tilemap _map;
 
     private void Awake() => _map = GetComponent<Tilemap>();
+    private void OnEnable() => All.Add(this);
+    private void OnDisable() => All.Remove(this);
 
     /// <summary>Erase every tile whose cell centre is within 'radius' of the point.</summary>
     public void CarveCircle(Vector2 worldCenter, float radius)
@@ -33,5 +41,6 @@ public class DestructibleTilemap : MonoBehaviour
             if ((wc - worldCenter).sqrMagnitude <= sqr)
                 _map.SetTile(c, null);
         }
+        Carved?.Invoke(worldCenter, radius);
     }
 }

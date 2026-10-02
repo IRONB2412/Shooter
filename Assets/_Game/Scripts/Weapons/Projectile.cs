@@ -12,6 +12,7 @@ public class Projectile : MonoBehaviour, IPoolable
     [SerializeField] private LayerMask hitMask = ~0;
 
     private SpriteRenderer _sr;
+    private TrailRenderer _trail;
     private Vector2 _velocity;
     private float _radius;
     private float _damage;
@@ -19,12 +20,21 @@ public class Projectile : MonoBehaviour, IPoolable
     private float _life;
     private Team _team;
     private GameObject _owner;
+    private Vector2 _castFrom;
+    private bool _firstStep;
 
-    private void Awake() => _sr = GetComponent<SpriteRenderer>();
+    private void Awake()
+    {
+        _sr = GetComponent<SpriteRenderer>();
+        _trail = GetComponent<TrailRenderer>(); // optional glow trail
+    }
 
     /// <summary>Configure a freshly-spawned bullet from weapon data.</summary>
-    public void Init(WeaponData data, Vector2 dir, Team team, GameObject owner)
+    public void Init(WeaponData data, Vector2 dir, Team team, GameObject owner, Vector2? castFrom = null)
     {
+        // First sweep starts at the shooter's body, so a muzzle point buried in a wall can't skip it.
+        _castFrom = castFrom ?? (Vector2)transform.position;
+        _firstStep = true;
         _velocity = dir.normalized * data.projectileSpeed;
         _radius = data.projectileRadius;
         _damage = data.damage;
@@ -34,28 +44,42 @@ public class Projectile : MonoBehaviour, IPoolable
         _owner = owner;
 
         _sr.color = data.projectileColor;
+        if (_trail != null)
+        {
+            var c = data.projectileColor;
+            _trail.startColor = new Color(c.r, c.g, c.b, 0.9f);
+            _trail.endColor = new Color(c.r, c.g, c.b, 0f);
+        }
         transform.localScale = Vector3.one * (data.projectileRadius * 2f);
         transform.right = dir; // orient sprite along travel
     }
 
-    public void OnSpawned() { }
+    public void OnSpawned() { if (_trail != null) _trail.Clear(); } // no streak from the pooled bullet's last position
     public void OnDespawned() { _owner = null; }
 
-    private void FixedUpdate()
+    // Moved in Update (not FixedUpdate) so travel is smooth at any frame rate and
+    // the sweep distance always matches what is drawn.
+    private void Update()
     {
-        float dt = Time.fixedDeltaTime;
+        float dt = Mathf.Min(Time.deltaTime, 0.05f);
         _life -= dt;
         if (_life <= 0f) { Despawn(); return; }
 
         Vector2 pos = transform.position;
-        float dist = _velocity.magnitude * dt;
         Vector2 dir = _velocity.normalized;
+        float step = _velocity.magnitude * dt;
 
-        RaycastHit2D hit = Physics2D.CircleCast(pos, _radius, dir, dist, hitMask);
+        Vector2 from = pos;
+        float dist = step;
+        if (_firstStep) { _firstStep = false; from = _castFrom; dist += Vector2.Distance(_castFrom, pos); }
+
+        bool first = from != pos;
+        RaycastHit2D hit = Physics2D.CircleCast(from, _radius, dir, dist, hitMask);
         if (hit.collider != null && HandleHit(hit))
             return; // hit something that stops the bullet
 
-        transform.position = pos + _velocity * dt;
+        // Spawn frame: stay exactly on the muzzle (where the aim trail starts) — no head start.
+        if (!first) transform.position = pos + dir * step;
     }
 
     /// <returns>true if the bullet should stop (was consumed).</returns>
@@ -79,6 +103,7 @@ public class Projectile : MonoBehaviour, IPoolable
         if (terrain != null && _chipRadius > 0f)
             terrain.CarveCircle(hit.point - dir_(hit) * 0.05f, _chipRadius);
 
+        GameEffects.Impact(hit.point);
         Despawn();
         return true; // solid wall or terrain stops the bullet
     }

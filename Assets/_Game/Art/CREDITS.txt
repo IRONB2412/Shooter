@@ -1,0 +1,2 @@
+Kenney Game Assets (kenney.nl), all CC0 1.0 (public domain): Top-down Shooter, Particle Pack.
+Derived/procedural art (floor, walls, background, FX sheet layout) generated for this project.

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -18,18 +19,46 @@ public class MenuController : MonoBehaviour
 
     [Header("Bots")]
     [SerializeField] private Text botCountLabel;
+    [SerializeField] private Text difficultyLabel;
+    [Tooltip("Easy / Normal / Hard button faces — the chosen one is highlighted.")]
+    [SerializeField] private Image[] difficultyButtons;
 
     private const string GameScene = "Game";
 
     private void Start() => ShowMain();
 
+    // Android's Back button arrives as Escape: back out of a sub-panel, or quit from main.
+    private void Update()
+    {
+        var kb = Keyboard.current;
+        if (kb == null || !kb.escapeKey.wasPressedThisFrame) return;
+        if (mainPanel != null && !mainPanel.activeSelf) ShowMain();
+        else QuitGame();
+    }
+
     // ---- Panel navigation ----
     public void ShowMain()   { Toggle(mainPanel, true);  Toggle(botsPanel, false); Toggle(onlinePanel, false); }
-    public void ShowBots()   { Toggle(mainPanel, false); Toggle(botsPanel, true);  Toggle(onlinePanel, false); UpdateBotLabel(); }
+    public void ShowBots()   { Toggle(mainPanel, false); Toggle(botsPanel, true);  Toggle(onlinePanel, false); UpdateBotLabel(); UpdateDifficultyUI(); }
     public void ShowOnline() { Toggle(mainPanel, false); Toggle(botsPanel, false); Toggle(onlinePanel, true); }
 
     // ---- Bots mode ----
-    public void SetDifficulty(int d) => MatchSettings.Difficulty = (BotDifficulty)Mathf.Clamp(d, 0, 2);
+    public void SetDifficulty(int d)
+    {
+        MatchSettings.Difficulty = (BotDifficulty)Mathf.Clamp(d, 0, 2);
+        UpdateDifficultyUI();
+    }
+
+    /// <summary>Show which difficulty is picked: label text + highlighted button.</summary>
+    private void UpdateDifficultyUI()
+    {
+        if (difficultyLabel != null) difficultyLabel.text = "Difficulty: " + MatchSettings.Difficulty;
+        if (difficultyButtons == null) return;
+        for (int i = 0; i < difficultyButtons.Length; i++)
+            if (difficultyButtons[i] != null)
+                difficultyButtons[i].color = i == (int)MatchSettings.Difficulty
+                    ? Color.white                       // selected: full colour
+                    : new Color(1f, 1f, 1f, 0.4f);      // others: faded
+    }
 
     public void ChangeBotCount(int delta)
     {

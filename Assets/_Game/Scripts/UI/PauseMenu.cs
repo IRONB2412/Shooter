@@ -21,8 +21,9 @@ public class PauseMenu : MonoBehaviour
 
     private void Update()
     {
+        if (HUDLayout.EditMode) return; // the layout editor owns Esc/Back while open
         var kb = Keyboard.current;
-        if (kb != null && kb.escapeKey.wasPressedThisFrame) Toggle();
+        if (kb != null && kb.escapeKey.wasPressedThisFrame) Toggle(); // Esc / Android Back
     }
 
     public void Toggle() => SetPaused(!IsPaused);
