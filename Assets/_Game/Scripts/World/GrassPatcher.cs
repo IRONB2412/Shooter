@@ -18,7 +18,7 @@ public class GrassPatcher : MonoBehaviour
     [SerializeField] private float spawnClearance = 6f;
     [SerializeField] private int seed = 4242;
     [Tooltip("Above characters (10) and bullets (9), below effects.")]
-    [SerializeField] private int sortingOrder = 12;
+    [SerializeField] private int sortingOrder = SortingOrders.Grass;
 
     private IEnumerator Start()
     {

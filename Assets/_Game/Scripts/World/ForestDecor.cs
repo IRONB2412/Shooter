@@ -17,7 +17,7 @@ public class ForestDecor : MonoBehaviour
     [SerializeField] private int seed = 1337;
     [Tooltip("Keep decor this far from spawn points so fights never start inside a bush.")]
     [SerializeField] private float spawnClearance = 3.5f;
-    [SerializeField] private int sortingOrder = 3; // above floor/walls, below props & characters
+    [SerializeField] private int sortingOrder = SortingOrders.Decor; // above floor/walls, below props & characters
 
     private IEnumerator Start()
     {

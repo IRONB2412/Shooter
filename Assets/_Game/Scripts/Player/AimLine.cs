@@ -35,7 +35,7 @@ public class AimLine : MonoBehaviour
         _line.numCapVertices = 2;
         _line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         _line.receiveShadows = false;
-        _line.sortingOrder = 9; // under characters (10), over the floor/walls
+        _line.sortingOrder = SortingOrders.AimLine; // over grass, under the player
 
         // Reuse the character's sprite material: always included in builds, no Shader.Find.
         if (TryGetComponent<SpriteRenderer>(out var sr)) _line.sharedMaterial = sr.sharedMaterial;

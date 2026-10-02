@@ -101,7 +101,7 @@ public class HealthPickupSpawner : MonoBehaviour
             go.transform.SetParent(transform, false);
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = packSprite;
-            sr.sortingOrder = 7;
+            sr.sortingOrder = SortingOrders.HealthPack;
             go.AddComponent<CircleCollider2D>();
             pack = go.AddComponent<HealthPickup>();
             pack.Collected += OnCollected;

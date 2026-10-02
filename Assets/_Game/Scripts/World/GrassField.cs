@@ -21,7 +21,7 @@ public class GrassField : MonoBehaviour
     private readonly List<SpriteRenderer> _renderers = new();
     private float _alpha = 1f;
 
-    [SerializeField, Range(0.2f, 1f)] private float insideAlpha = 0.45f;
+    [SerializeField, Range(0.2f, 1f)] private float insideAlpha = 0.7f; // the player is drawn above grass anyway
 
     private void OnEnable() => All.Add(this);
     private void OnDisable() => All.Remove(this);
