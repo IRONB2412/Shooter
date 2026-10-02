@@ -11,6 +11,7 @@ public class ScreenFlash : MonoBehaviour
     private Image _img;
     private float _alpha;
     private float _fadeSpeed;
+    private float _hold;
 
     private void Awake()
     {
@@ -30,12 +31,14 @@ public class ScreenFlash : MonoBehaviour
         if (((Vector2)player.transform.position - center).sqrMagnitude > radius * radius) return;
 
         _alpha = 1f;
-        _fadeSpeed = 1f / Mathf.Max(0.2f, duration);
+        _hold = duration * 0.4f;                 // fully white-out first, then fade
+        _fadeSpeed = 1f / Mathf.Max(0.2f, duration * 0.6f);
     }
 
     private void Update()
     {
         if (_alpha <= 0f) return;
+        if (_hold > 0f) { _hold -= Time.unscaledDeltaTime; return; }
         _alpha = Mathf.Max(0f, _alpha - _fadeSpeed * Time.unscaledDeltaTime);
         SetAlpha(_alpha);
     }

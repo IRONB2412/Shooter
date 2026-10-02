@@ -7,12 +7,22 @@ using UnityEngine;
 public class CameraFollow : MonoBehaviour
 {
     [SerializeField] private Transform target;
-    [SerializeField] private float smoothTime = 0.15f;
+    [SerializeField] private float smoothTime = 0.06f;
     [Tooltip("World-space rectangle the camera centre is kept inside. Set to the map size.")]
     [SerializeField] private Rect bounds = new Rect(-50, -50, 100, 100);
     [SerializeField] private bool useBounds = true;
 
     private Vector3 _velocity;
+    private Vector3 _basePos;
+    private bool _hasBase;
+    private static float _shakeAmp, _shakeTime;
+
+    /// <summary>Screen shake (explosions). Amplitude in world units, duration in seconds.</summary>
+    public static void Shake(float amplitude, float duration)
+    {
+        if (amplitude > _shakeAmp) _shakeAmp = amplitude;
+        _shakeTime = Mathf.Max(_shakeTime, duration);
+    }
 
     public void SetTarget(Transform t) => target = t;
     public void SetBounds(Rect r) { bounds = r; useBounds = true; }
@@ -20,6 +30,7 @@ public class CameraFollow : MonoBehaviour
     private void LateUpdate()
     {
         if (target == null) return;
+        if (!_hasBase) { _basePos = transform.position; _hasBase = true; }
 
         Vector3 goal = new Vector3(target.position.x, target.position.y, transform.position.z);
 
@@ -32,6 +43,16 @@ public class CameraFollow : MonoBehaviour
             goal.y = Mathf.Clamp(goal.y, bounds.yMin + halfH, bounds.yMax - halfH);
         }
 
-        transform.position = Vector3.SmoothDamp(transform.position, goal, ref _velocity, smoothTime);
+        Vector3 pos = Vector3.SmoothDamp(_basePos, goal, ref _velocity, smoothTime);
+        _basePos = pos;
+
+        if (_shakeTime > 0f)
+        {
+            _shakeTime -= Time.unscaledDeltaTime;
+            pos += (Vector3)(Random.insideUnitCircle * _shakeAmp);
+            _shakeAmp = Mathf.MoveTowards(_shakeAmp, 0f, _shakeAmp * 4f * Time.unscaledDeltaTime);
+            if (_shakeTime <= 0f) _shakeAmp = 0f;
+        }
+        transform.position = pos;
     }
 }

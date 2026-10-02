@@ -20,7 +20,8 @@ public class DraggableHUDElement : MonoBehaviour, IDragHandler, IEndDragHandler,
     private void Awake()
     {
         _rt = (RectTransform)transform;
-        _canvas = GetComponentInParent<Canvas>();
+        var c = GetComponentInParent<Canvas>();
+        _canvas = c != null ? c.rootCanvas : null; // sub-canvases report no real scale; use the root's
         _defaultPos = _rt.anchoredPosition;
         _defaultScale = _rt.localScale;
         _key = "hud_" + gameObject.name;

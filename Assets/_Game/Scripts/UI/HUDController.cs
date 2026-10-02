@@ -14,6 +14,8 @@ public class HUDController : MonoBehaviour
     [SerializeField] private Text weaponText;
     [SerializeField] private Text killsText;
     [SerializeField] private Text throwableText;
+    [Tooltip("Label on the single FIRE/THROW button.")]
+    [SerializeField] private Text fireLabel;
 
     private GameObject _player;
     private Health _health;
@@ -68,7 +70,7 @@ public class HUDController : MonoBehaviour
 
     private void OnThrowable(ThrowableData t, int index)
     {
-        if (throwableText != null) throwableText.text = t != null ? t.displayName : "";
+        RefreshMode();
     }
 
     private void OnKills(int kills)
@@ -78,7 +80,27 @@ public class HUDController : MonoBehaviour
 
     // ---- Button hooks ----
     public void SelectWeapon(int slot) => InputProvider.Instance?.SelectWeapon(slot);
-    public void ThrowSelected() => InputProvider.Instance?.QueueThrow();
-    public void CycleThrowable() => _throwable?.CycleSelection();
+    /// <summary>
+    /// Mode button: cycles Gun -> each throwable -> Gun. The one action button then
+    /// shoots in Gun mode and throws the selected item otherwise (never both at once).
+    /// </summary>
+    public void CycleThrowable()
+    {
+        var inp = InputProvider.Instance;
+        if (inp == null || _throwable == null || _throwable.Items.Count == 0) return;
+
+        if (!inp.ThrowMode) { inp.SetThrowMode(true); _throwable.Select(0); }
+        else if (_throwable.SelectedIndex >= _throwable.Items.Count - 1) inp.SetThrowMode(false);
+        else _throwable.CycleSelection();
+        RefreshMode();
+    }
+
+    private void RefreshMode()
+    {
+        bool throwing = InputProvider.Instance != null && InputProvider.Instance.ThrowMode;
+        if (throwableText != null)
+            throwableText.text = throwing && _throwable?.Selected != null ? _throwable.Selected.displayName : "Gun";
+        if (fireLabel != null) fireLabel.text = throwing ? "THROW" : "FIRE";
+    }
     public void Reload() { if (_weapon != null) _weapon.Reload(); }
 }

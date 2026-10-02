@@ -53,6 +53,9 @@ public static class GameSetup
         var bot = BuildFighter(circle, bullet, throwable, isPlayer: false);
         log.AppendLine("Prefabs OK");
 
+        EnsureLevelKit(square);
+        log.AppendLine("Level kit OK");
+
         BuildScene(floor, wall, destr, player, bot);
         log.AppendLine("Scene OK");
 
@@ -193,6 +196,59 @@ public static class GameSetup
         return prefab;
     }
 
+    // ---------------------------------------------------------------- level kit
+    /// <summary>Public entry so the Level Builder can lazily create the kit if missing.</summary>
+    public static void EnsureLevelKit()
+    {
+        var square = AssetDatabase.LoadAssetAtPath<Sprite>(ArtDir + "/square.png");
+        if (square != null) EnsureLevelKit(square);
+    }
+
+    /// <summary>Creates the extra tiles/objects used by the Level Builder (idempotent).</summary>
+    static void EnsureLevelKit(Sprite square)
+    {
+        EnsureDirs();
+
+        // Boundary / edge-blocker tile (solid, indestructible) on the Walls map.
+        MakeTile(TileDir + "/EdgeBlocker.asset", square, new Color(0.22f, 0.24f, 0.30f), Tile.ColliderType.Grid);
+
+        // Door prefab: trigger on the root (Default layer), blocker on an Obstacle child.
+        if (AssetDatabase.LoadAssetAtPath<GameObject>(PrefabDir + "/Door.prefab") == null)
+        {
+            var root = new GameObject("Door"); // Default layer (0): its trigger won't block bullets/LOS
+            var sr = root.AddComponent<SpriteRenderer>();
+            sr.sprite = square; sr.color = new Color(0.95f, 0.65f, 0.2f); sr.sortingOrder = 5;
+            var trigger = root.AddComponent<CircleCollider2D>();
+            trigger.isTrigger = true; trigger.radius = 1.3f;
+
+            var solidGO = new GameObject("Solid");
+            solidGO.transform.SetParent(root.transform);
+            solidGO.layer = L_Obstacle;
+            var box = solidGO.AddComponent<BoxCollider2D>();
+            box.size = Vector2.one;
+
+            var door = root.AddComponent<DoorController>();
+            Set(door, "solidCollider", box);
+            Set(door, "characterMask", Mask(L_Player, L_Enemy));
+            SavePrefab(root, "Door");
+        }
+
+        // Prop prefab: solid, indestructible, sprite swapped per placement by the builder.
+        if (AssetDatabase.LoadAssetAtPath<GameObject>(PrefabDir + "/Prop.prefab") == null)
+        {
+            var go = new GameObject("Prop");
+            go.layer = L_Obstacle;
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = square; sr.color = new Color(0.6f, 0.5f, 0.35f); sr.sortingOrder = 6;
+            var box = go.AddComponent<BoxCollider2D>();
+            box.size = new Vector2(0.92f, 0.92f);
+            go.AddComponent<Prop>();
+            SavePrefab(go, "Prop");
+        }
+
+        AssetDatabase.SaveAssets();
+    }
+
     static GameObject BuildBullet(Sprite circle)
     {
         var go = new GameObject("Bullet");
@@ -260,7 +316,8 @@ public static class GameSetup
         Set(hp, "maxHealth", 100f);
 
         var motor = go.AddComponent<CharacterMotor>();
-        Set(motor, "moveSpeed", 6f);
+        // The player is a little faster than any bot, so running away always works.
+        Set(motor, "moveSpeed", isPlayer ? 6.6f : 6f);
         Set(motor, "visual", pivot.transform); // rotate the aim pivot to face AimDir
 
         var weapon = go.AddComponent<WeaponController>();
@@ -387,7 +444,8 @@ public static class GameSetup
         rend.sortingOrder = order;
         if (addCollider)
         {
-            var tc = go.AddComponent<TilemapCollider2D>();
+            go.AddComponent<TilemapCollider2D>();
+            OptimizeSetup.MergeColliders(go); // one composite shape instead of a collider per tile
             if (destructible) go.AddComponent<DestructibleTilemap>();
         }
         return map;

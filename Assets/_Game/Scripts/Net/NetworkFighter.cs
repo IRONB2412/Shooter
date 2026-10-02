@@ -70,6 +70,7 @@ public class NetworkFighter : NetworkBehaviour, IDamageable
     public void TakeDamage(float amount, GameObject source)
     {
         if (!IsAlive || amount <= 0f) return;
+        GameEffects.Blood(transform.position);
         if (IsServer) ServerApplyDamage(amount);
         else SubmitDamageServerRpc(amount);
     }
@@ -88,7 +89,7 @@ public class NetworkFighter : NetworkBehaviour, IDamageable
     {
         yield return new WaitForSeconds(3f);
         var spawns = FindObjectsByType<SpawnPoint>(FindObjectsSortMode.None);
-        Vector3 pos = spawns.Length > 0 ? spawns[Random.Range(0, spawns.Length)].transform.position : Vector3.zero;
+        Vector3 pos = SpawnPoint.Pick(spawns); // far from everyone alive
         TeleportClientRpc(pos);
         _hp.Value = maxHealth;
     }

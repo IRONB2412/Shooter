@@ -2,38 +2,56 @@ using Unity.Netcode;
 using UnityEngine;
 
 /// <summary>
-/// Server-side match spawner for online play. Gives every connected client a
-/// player object and spawns the chosen number of bots. Runs only on the server;
-/// clients receive the spawned objects automatically via Netcode.
+/// Server-side match spawner for online play. This is a PLAIN component that sits
+/// on the NetworkManager GameObject (not a NetworkBehaviour, so it needs no
+/// NetworkObject — which keeps the NetworkManager object free of the hierarchy
+/// NetworkObjects aren't allowed to share). It listens to NetworkManager events:
+/// gives every connected client a player and spawns the chosen number of bots.
 /// </summary>
-public class NetworkGameManager : NetworkBehaviour
+[RequireComponent(typeof(NetworkManager))]
+public class NetworkGameManager : MonoBehaviour
 {
     [SerializeField] private GameObject netPlayerPrefab;
     [SerializeField] private GameObject netBotPrefab;
 
+    private NetworkManager _nm;
     private SpawnPoint[] _spawns;
 
-    public override void OnNetworkSpawn()
+    /// <summary>Set the networked prefabs when this is created at runtime by MatchBootstrap.</summary>
+    public void Configure(GameObject playerPrefab, GameObject botPrefab)
     {
-        if (!IsServer) return;
+        netPlayerPrefab = playerPrefab;
+        netBotPrefab = botPrefab;
+    }
 
+    private void Awake() => _nm = GetComponent<NetworkManager>();
+
+    private void OnEnable()
+    {
+        _nm.OnServerStarted += HandleServerStarted;
+        _nm.OnClientConnectedCallback += HandleClientConnected;
+    }
+
+    private void OnDisable()
+    {
+        if (_nm == null) return;
+        _nm.OnServerStarted -= HandleServerStarted;
+        _nm.OnClientConnectedCallback -= HandleClientConnected;
+    }
+
+    // Server only: bots spawn once the server is up.
+    private void HandleServerStarted()
+    {
+        if (!_nm.IsServer) return;
         _spawns = FindObjectsByType<SpawnPoint>(FindObjectsSortMode.None);
-
-        // A player for the host and anyone already connected, plus future joiners.
-        foreach (var id in NetworkManager.Singleton.ConnectedClientsIds) SpawnPlayer(id);
-        NetworkManager.Singleton.OnClientConnectedCallback += SpawnPlayer;
-
         for (int i = 0; i < MatchSettings.BotCount; i++) SpawnBot();
     }
 
-    public override void OnNetworkDespawn()
+    // Fires for the host and every joining client; the server spawns their player.
+    private void HandleClientConnected(ulong clientId)
     {
-        if (IsServer && NetworkManager.Singleton != null)
-            NetworkManager.Singleton.OnClientConnectedCallback -= SpawnPlayer;
-    }
-
-    private void SpawnPlayer(ulong clientId)
-    {
+        if (!_nm.IsServer) return;
+        if (_spawns == null) _spawns = FindObjectsByType<SpawnPoint>(FindObjectsSortMode.None);
         var go = Instantiate(netPlayerPrefab, RandomSpawn(), Quaternion.identity);
         go.GetComponent<NetworkObject>().SpawnAsPlayerObject(clientId);
     }
@@ -47,7 +65,6 @@ public class NetworkGameManager : NetworkBehaviour
 
     private Vector3 RandomSpawn()
     {
-        if (_spawns == null || _spawns.Length == 0) return Vector3.zero;
-        return _spawns[Random.Range(0, _spawns.Length)].transform.position;
+        return SpawnPoint.Pick(_spawns); // keep fighters apart
     }
 }

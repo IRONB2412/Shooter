@@ -28,11 +28,17 @@ public class Throwable : MonoBehaviour, IPoolable
     private GameObject _owner;
     private Vector2 _velocity;
     private float _fuse;
+    private Vector2 _castFrom;
+    private bool _firstStep;
+    private const float Radius = 0.2f;
+    private static int _wallMask = -1;
 
     private void Awake() => _sr = GetComponent<SpriteRenderer>();
 
-    public void Init(ThrowableData data, Vector2 dir, Team team, GameObject owner)
+    public void Init(ThrowableData data, Vector2 dir, Team team, GameObject owner, Vector2? castFrom = null)
     {
+        _castFrom = castFrom ?? (Vector2)transform.position;
+        _firstStep = true;
         _data = data;
         _team = team;
         _owner = owner;
@@ -46,13 +52,34 @@ public class Throwable : MonoBehaviour, IPoolable
     public void OnSpawned() { }
     public void OnDespawned() { _owner = null; }
 
-    private void FixedUpdate()
+    private void Update()
     {
-        float dt = Time.fixedDeltaTime;
+        float dt = Mathf.Min(Time.deltaTime, 0.05f);
+        if (_wallMask < 0) _wallMask = LayerMask.GetMask("Obstacle", "Destructible");
 
-        // Move and apply exponential drag so it eases to a stop.
-        transform.position += (Vector3)(_velocity * dt);
-        _velocity = Vector2.Lerp(_velocity, Vector2.zero, Mathf.Clamp01(_data.drag * dt));
+        Vector2 pos = transform.position;
+        float step = _velocity.magnitude * dt;
+        if (step > 0.0001f)
+        {
+            Vector2 dir = _velocity / (step / dt);
+            Vector2 from = pos;
+            float dist = step;
+            if (_firstStep) { from = _castFrom; dist += Vector2.Distance(_castFrom, pos); }
+
+            var hit = Physics2D.CircleCast(from, Radius, dir, dist, _wallMask);
+            if (hit.collider != null)
+            {
+                // Bounce off the wall, losing some energy; sit just outside the surface.
+                pos = hit.point + hit.normal * Radius;
+                _velocity = Vector2.Reflect(_velocity, hit.normal) * 0.45f;
+            }
+            else pos += dir * step;
+        }
+        _firstStep = false;
+        transform.position = pos;
+
+        // Exponential drag (frame-rate independent) so it eases to a stop.
+        _velocity *= Mathf.Exp(-_data.drag * dt);
 
         _fuse -= dt;
         if (_fuse <= 0f) Detonate();
@@ -66,17 +93,20 @@ public class Throwable : MonoBehaviour, IPoolable
         {
             case ThrowableKind.Grenade:
                 ApplyGrenade(center);
-                SpawnVisual(center, _data.color, _data.radius, 0.4f);
+                GameEffects.Explosion(center); // particle blast replaces the old disk
                 break;
 
             case ThrowableKind.Smoke:
+                SmokeZones.Add(center, _data.radius, _data.effectDuration);
                 OnSmoke?.Invoke(center, _data.radius, _data.effectDuration);
                 SpawnVisual(center, _data.color, _data.radius, _data.effectDuration);
+                GameEffects.Smoke(center);
                 break;
 
             case ThrowableKind.Flash:
                 OnFlash?.Invoke(center, _data.radius, _data.effectDuration);
                 SpawnVisual(center, _data.color, _data.radius, 0.6f);
+                GameEffects.Flash(center);
                 break;
         }
 
@@ -90,7 +120,9 @@ public class Throwable : MonoBehaviour, IPoolable
         foreach (var h in hits)
         {
             var dmg = h.GetComponentInParent<IDamageable>();
-            if (dmg == null || dmg.Team == _team) continue;
+            if (dmg == null || !dmg.IsAlive) continue; // friendly fire on purpose: the thrower and teammates get hurt too
+            // Walls shield you from the blast.
+            if (Physics2D.Linecast(center, h.transform.position, _wallMask).collider != null) continue;
 
             float dist = Vector2.Distance(center, h.transform.position);
             float falloff = Mathf.Clamp01(1f - dist / _data.radius);
@@ -98,7 +130,7 @@ public class Throwable : MonoBehaviour, IPoolable
         }
 
         // Carve any destructible tilemaps in range.
-        foreach (var terrain in FindObjectsByType<DestructibleTilemap>(FindObjectsSortMode.None))
+        foreach (var terrain in DestructibleTilemap.All)
             terrain.CarveCircle(center, _data.terrainCarveRadius);
     }
 

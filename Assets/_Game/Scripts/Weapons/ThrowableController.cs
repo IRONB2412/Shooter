@@ -59,7 +59,7 @@ public class ThrowableController : MonoBehaviour
 
         var go = PoolManager.Instance.Spawn(throwablePrefab, origin, Quaternion.identity);
         if (go != null && go.TryGetComponent<Throwable>(out var t))
-            t.Init(Selected, aim, _team, gameObject);
+            t.Init(Selected, aim, _team, gameObject, transform.position);
 
         _cooldown = throwCooldown;
         return true;
