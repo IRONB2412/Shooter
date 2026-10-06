@@ -81,7 +81,7 @@ public class Throwable : MonoBehaviour, IPoolable
         // Exponential drag (frame-rate independent) so it eases to a stop.
         _velocity *= Mathf.Exp(-_data.drag * dt);
 
-        _fuse -= dt;
+        _fuse -= Time.deltaTime; // real time: the fuse must not stretch on slow frames (dt above is clamped for movement only)
         if (_fuse <= 0f) Detonate();
     }
 

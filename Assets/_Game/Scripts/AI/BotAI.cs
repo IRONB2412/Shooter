@@ -147,8 +147,10 @@ public class BotAI : MonoBehaviour
 
     private void OnFlash(Vector2 center, float radius, float duration)
     {
-        if (((Vector2)transform.position - center).sqrMagnitude <= radius * radius)
-            _blindTimer = duration;
+        Vector2 pos = transform.position;
+        if ((pos - center).sqrMagnitude > radius * radius) return;
+        if (Physics2D.Linecast(center, pos, obstacleMask).collider != null) return; // walls shield the eyes
+        _blindTimer = duration;
     }
 
     private void Update()
